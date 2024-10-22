@@ -3,9 +3,16 @@
 #include<string>
 #include<algorithm>
 #include<cmath>
+#include<bitset>
 
 using namespace std;
 
+/*int resetFile(ifstream infile){
+  //Resetting file to the beginning before the next predictor
+  infile.clear();
+  infile.seekg(0);
+  return 0;
+}*/
 
 int main(int argc, char *argv[]) {
 
@@ -14,8 +21,7 @@ int main(int argc, char *argv[]) {
   string behavior;
 
   // Open file for reading
-
-  ifstream infile(argv[argument]);
+  ifstream infile(argv[1]);
 
   // Always taken predictor
   int numBranches = 0, correctPred = 0;
@@ -26,7 +32,8 @@ int main(int argc, char *argv[]) {
     numBranches++;
   }
   cout << correctPred << "," << numBranches << ";" << endl;
-  resetFile(infile);
+  infile.clear();
+  infile.seekg(0);
 
   // Always not taken predictor
   numBranches = 0; 
@@ -38,22 +45,23 @@ int main(int argc, char *argv[]) {
     numBranches++;
   }
   cout << correctPred << "," << numBranches << ";" << endl;
-  resetFile(infile);
+  infile.clear();
+  infile.seekg(0);
 
   // Bimodal Predictor with a single bit of history
   numBranches = 0; 
   correctPred = 0;
   // array that has the different sizes the table needs to be
   int difTableSizes[7] = {4, 8, 32, 64, 256, 1024, 4096};
-  int tableSize = difTableSizes[0];
   // Running a simulation for each table size
   int i = 0;
   while(i <= 6){
     int tableSize = difTableSizes[i];
     // creating the predictor table and initializing all the values to non-taken (1)
     int predictorTable[tableSize];
-    fill(predictorTable, end(predictorTable), 1);
-    unsigned int bitmask = (1 << log2(tableSize)) - 1; //the log base 2 of the table size is used to determine how many bits the index will be
+    fill(predictorTable, predictorTable + tableSize, 1);
+    int logTableSize = log2(tableSize);
+    unsigned int bitmask = (1 << logTableSize) - 1; //the log base 2 of the table size is used to determine how many bits the index will be
     while(infile >> std::hex >> addr >> behavior) {
       int index = addr & bitmask;
       if(predictorTable[index] == 1){
@@ -72,7 +80,8 @@ int main(int argc, char *argv[]) {
       numBranches++;
     }
     cout << correctPred << "," << numBranches << "; ";
-    resetFile(infile);
+    infile.clear();
+    infile.seekg(0);
     numBranches = 0; 
     correctPred = 0;
     i++;
@@ -80,15 +89,16 @@ int main(int argc, char *argv[]) {
   cout << endl;
 
   // Bimodal Predictor with a two bit counter
-  int tableSize = difTableSizes[0]; //initializing table size again
 
-  int i = 0;
+
+  i = 0;
   while(i <= 6){
     int tableSize = difTableSizes[i];
     // creating the predictor table and initializing all the values to non-taken (3)
     int predictorTable[tableSize];
-    fill(predictorTable, end(predictorTable), 3);
-    unsigned int bitmask = (1 << log2(tableSize)) - 1;
+    fill(predictorTable, predictorTable + tableSize, 3);
+    int logTableSize = log2(tableSize);
+    unsigned int bitmask = (1 << logTableSize) - 1;
     while(infile >> std::hex >> addr >> behavior) {
       numBranches++;
       int index = addr & bitmask;
@@ -115,43 +125,42 @@ int main(int argc, char *argv[]) {
     cout << correctPred << "," << numBranches << "; ";
     numBranches = 0; 
     correctPred = 0;
-    resetFile(infile);
+    infile.clear();
+    infile.seekg(0);
     i++;
   }
   cout << endl;
 
   // Bimodal Predictor with a three bit counter
-  int tableSize = difTableSizes[0]; //initializing table size again
 
-  int i = 0;
+  i = 0;
   while(i <= 6){
     int tableSize = difTableSizes[i];
     // creating the predictor table and initializing all the values to very strongly-taken (0)
     int predictorTable[tableSize];
-    fill(predictorTable, end(predictorTable), 0);
-    unsigned int bitmask = (1 << log2(tableSize)) - 1;
+    fill(predictorTable, predictorTable + tableSize, 0);
+    int logTableSize = log2(tableSize);
+    unsigned int bitmask = (1 << logTableSize) - 1;
     while(infile >> std::hex >> addr >> behavior) {
       numBranches++;
       int index = addr & bitmask;
       if(predictorTable[index] >= 3){
         if(behavior == "NT"){
-          correctPred++;
+          correctPred++;	
           if(predictorTable[index] != 5){
             predictorTable[index]++;
           }
         }else{
           predictorTable[index]--;
         }
-      }else if(predictorTable[index] == 2){ //this else if statement is a special case for strongly taken, since the counter needs to be 
+      }else if(predictorTable[index] == 1){ //this else if statement is a special case for strongly taken, since the counter needs to be 
         if(behavior == "T"){                //incremented twice, according to the document attached to the project document
           correctPred++;
-          if(predictorTable[index] != 0){
-            predictorTable[index]--;
-        }else{
-          predictorTable[index] = predictorTable[index] + 2;
+          predictorTable[index]--;
+  	}else{
+        predictorTable[index] = predictorTable[index] + 2;
         }
-        }
-      }else if(predictorTable[index] <= 1){
+      }else if(predictorTable[index] <= 2){
         if(behavior == "T"){
           correctPred++;
           if(predictorTable[index] != 0){
@@ -165,21 +174,22 @@ int main(int argc, char *argv[]) {
     cout << correctPred << "," << numBranches << "; ";
     numBranches = 0; 
     correctPred = 0;
-    resetFile(infile);
+    infile.clear();
+    infile.seekg(0);
     i++;
   }
   cout << endl;
 
   // Gshare predictor
-  int numBits = 2; //represents the number of bits of the global history register
-  while(numBits <= 12){
+  int numBits = 2/*should be2*/; //represents the number of bits of the global history register
+  while(numBits <= 12/*should be12*/){
     int ghr = 1; //GHR is initiallized to 1
     unsigned int bitmask = (1 << numBits) - 1;
     int predictorTable[4096];
-    fill(predictorTable, end(predictorTable), 3); //predictor table is initiallized to strongly not taken (3)
+    fill(predictorTable, predictorTable + 4096, 3); //predictor table is initiallized to strongly not taken (3)
     while(infile >> std::hex >> addr >> behavior) {
       numBranches++;
-      int index = (addr & bitmask) ^ ghr;
+      int index = (addr & 4095) ^ ghr;
       if(predictorTable[index] >= 2){
         if(behavior == "NT"){
           correctPred++;
@@ -210,7 +220,8 @@ int main(int argc, char *argv[]) {
     cout << correctPred << "," << numBranches << "; ";
     numBranches = 0; 
     correctPred = 0;
-    resetFile(infile);
+    infile.clear();
+    infile.seekg(0);
     numBits++;
   }
   cout << endl;
@@ -221,10 +232,11 @@ int main(int argc, char *argv[]) {
   int gsharePredTable[4096];
   int bimodPredTable[4096];
   int selectorTable[4096];
-  fill(gsharePredTable, end(gsharePredTable), 3);
-  fill(bimodPredTable, end(bimodPredTable), 5);
-  fill(selectorTable, end(selectorTable), 3);
+  fill(gsharePredTable, gsharePredTable + 4096, 3);
+  fill(bimodPredTable, bimodPredTable + 4096, 5);
+  fill(selectorTable, selectorTable + 4096, 3);
   unsigned int bitmask = (1 << 12) - 1;
+  cout << "bitmask: " << bitmask << endl;
 
   while(infile >> std::hex >> addr >> behavior) {
     numBranches++;
@@ -271,7 +283,7 @@ int main(int argc, char *argv[]) {
       }else{
         bimodPredTable[bimodIndex]--;
       }
-    }else if(bimodPredTable[bimodIndex] == 2){  
+    }else if(bimodPredTable[bimodIndex] == 1){  
       if(behavior == "T"){              
         bimodCorrect = true;
         if(bimodPredTable[bimodIndex] != 0){
@@ -280,7 +292,7 @@ int main(int argc, char *argv[]) {
         bimodPredTable[bimodIndex] = bimodPredTable[bimodIndex] + 2;
       }
       }
-    }else if(bimodPredTable[bimodIndex] <= 1){
+    }else if(bimodPredTable[bimodIndex] <= 2){
       if(behavior == "T"){
         bimodCorrect = true;
         if(bimodPredTable[bimodIndex] != 0){
@@ -304,23 +316,9 @@ int main(int argc, char *argv[]) {
       }
     }
   }
-  cout << correctPred << "," << numBranches << "; " endl;
-  resetFile(infile);
-
-  return 0;
-}
-
-int resetFile(ifstream infile){
-  //Resetting file to the beginning before the next predictor
+  cout << correctPred << "," << numBranches << "; " << endl;
   infile.clear();
   infile.seekg(0);
-  return 0;
-}
 
-// Helper function for neatening up the code for filling the array,
-// found in an answer at https://stackoverflow.com/questions/2890598/how-to-initialize-all-elements-in-an-array-to-the-same-number-in-c
-template <typename T, size_t N>
-T* end(T (&pX)[N])
-{
-    return pX + N;
+  return 0;
 }
